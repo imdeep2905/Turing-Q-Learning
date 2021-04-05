@@ -100,7 +100,7 @@ class DQNAgentBase:
             log_dir = Path(
                 os.path.join("runs", time.strftime("%d_%m_%Y-%H_%M_%S"))
             )
-            os.mkdir(log_dir)
+            os.makedirs(log_dir)
         logging.info(f"{ __name__}: Saving logs in {log_dir}.")
         with open(os.path.join(log_dir, "logs.csv"), "a+", newline="") as file:
             writer = csv.writer(file)
