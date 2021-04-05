@@ -84,12 +84,13 @@ class DQNAgentBase:
             file.write(f"video_save_interval: {video_save_interval}\n")
 
     @abstractmethod
-    def _step(self):
+    def _step(self, pseudo_learning_rate):
         raise NotImplementedError
 
     def train(
         self,
         num_iterations,
+        pseudo_learning_rate,
         steps_per_iter=4,
         log_dir=None,
         eval_episodes=5,
@@ -100,7 +101,7 @@ class DQNAgentBase:
             log_dir = Path(
                 os.path.join("runs", time.strftime("%d_%m_%Y-%H_%M_%S"))
             )
-            os.mkdir(log_dir)
+            os.makedirs(log_dir)
         logging.info(f"{ __name__}: Saving logs in {log_dir}.")
         with open(os.path.join(log_dir, "logs.csv"), "a+", newline="") as file:
             writer = csv.writer(file)
@@ -132,7 +133,7 @@ class DQNAgentBase:
                         )
                     )
 
-            loss = self._step()
+            loss = self._step(pseudo_learning_rate)
 
             print(f"Current Iteration: {iter}")
 
@@ -195,7 +196,7 @@ class DQNAgentBase:
 
 class DQNAgentSummedLoss(DQNAgentBase):
     @tf.function
-    def _step(self):
+    def _step(self, pseudo_learning_rate):
         total_loss = tf.constant([0.0])
         for env_num in range(len(self.envs)):
             experiences = self.envs[env_num].get_batch_from_replay_buffer(
@@ -203,6 +204,7 @@ class DQNAgentSummedLoss(DQNAgentBase):
             )
             states, actions, rewards, next_states, dones = experiences[0]
             with tf.GradientTape(persistent=True) as tape:
+                tape.watch(total_loss)
                 next_Q_values = self._predict(env_num, next_states)
                 max_next_Q_values = tf.math.reduce_max(next_Q_values)
                 target_Q_values = (
@@ -245,10 +247,20 @@ class DQNAgentSummedLoss(DQNAgentBase):
                     self.envs[env_num].out_interactor.trainable_variables,
                 )
             )
+
         common_model_grads = tape.gradient(
             total_loss, self.common_model.trainable_variables
         )
+
+        for i in range(len(common_model_grads)):
+            common_model_grads[i] = tf.math.scalar_mul(
+                pseudo_learning_rate, common_model_grads[i]
+            )
+
         self.optimizer.apply_gradients(
-            zip(common_model_grads, self.common_model.trainable_variables)
+            zip(
+                common_model_grads,
+                self.common_model.trainable_variables,
+            )
         )
         return total_loss / len(self.envs)

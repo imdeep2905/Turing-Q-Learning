@@ -9,6 +9,7 @@ class BaseEnvWrapper:
     def __init__(
         self,
         env,
+        eval_env,
         name,
         in_interactor,
         out_interactor,
@@ -23,6 +24,8 @@ class BaseEnvWrapper:
         self.name = name
 
         self.env = env
+        self.eval_env = eval_env
+
         self.number_of_actions = self.env.action_spec().maximum + 1
 
         self._epislon = Epsilon(
