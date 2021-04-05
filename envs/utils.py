@@ -71,7 +71,8 @@ class Epsilon:
 
 
 def create_eval_video(filename, _env, model, num_episodes, fps=30):
-    env = _env.env
+    env = _env.eval_env
+
     logging.debug(
         f"{__name__}: Creating agent video. (env = {_env.name},"
         f" episodes = {num_episodes})."
@@ -79,49 +80,55 @@ def create_eval_video(filename, _env, model, num_episodes, fps=30):
     filename += ".mp4"
     filename = filename.replace("|", "-")
     filename = filename.replace(" ", "_")
-    resolution = np.squeeze(env.render(mode="rgb_array"), axis=0).shape
+
     with imageio.get_writer(filename, fps=fps) as video:
         for i in range(1, num_episodes + 1):
             logging.debug(f"{__name__}: {_env.name}, Video Episode: {i}.")
-            current_time_step = env.reset()
-            video.append_data(
-                np.reshape(
-                    env.render(mode="rgb_array"),
-                    resolution,
-                )
-            )
-            while not current_time_step.is_last():
+            current_observation = env.reset()
+            video.append_data(env.render(mode="rgb_array"))
+            done = False
+            while not done:
                 action = np.argmax(
-                    model(current_time_step.observation),
-                    axis=-1,
+                    model(
+                        tf.convert_to_tensor(
+                            np.expand_dims(current_observation, axis=0)
+                        )
+                    )
                 )
-                current_time_step = env.step(action)
-                video.append_data(
-                    np.reshape(env.render(mode="rgb_array"), resolution)
-                )
+                current_observation, _, done, _ = env.step(action)
+                video.append_data(env.render(mode="rgb_array"))
+        env.close()
+
     logging.debug(
         f"{__name__}: Video successfully saved in the file: {filename}."
     )
 
 
 def get_rewards(_env, model, num_episodes):
-    env = _env.env
+    env = _env.eval_env
     logging.debug(
         f"{__name__}: Calculating rewards. (env = {_env.name},"
         f" episodes = {num_episodes})."
     )
     rewards = []
     for i in range(1, num_episodes + 1):
-        current_time_step = env.reset()
-        reward = 0.0
-        while not current_time_step.is_last():
-            action = np.argmax(model(current_time_step.observation))
-            current_time_step = env.step(action)
-            reward += current_time_step.reward.numpy()[0]
+        current_observation = env.reset()
+        current_reward = 0.0
+        done = False
+        while not done:
+            action = np.argmax(
+                model(
+                    tf.convert_to_tensor(
+                        np.expand_dims(current_observation, axis=0)
+                    )
+                )
+            )
+            current_observation, _reward, done, _ = env.step(action)
+            current_reward += _reward
         logging.debug(
-            f"{__name__}: {_env.name}, Episode: {i} Reward: {reward}."
+            f"{__name__}: {_env.name}, Episode: {i} Reward: {current_reward}."
         )
-        rewards.append(reward)
+        rewards.append(current_reward)
     return rewards
 
 
