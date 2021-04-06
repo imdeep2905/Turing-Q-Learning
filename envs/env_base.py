@@ -86,13 +86,13 @@ class BaseEnvWrapper:
 
     def _step_driver(self, action):
         cur_obs = self.env.current_time_step()
-        if np.random.rand() > self._epislon.epsilon:
-            action = tf.convert_to_tensor(action, dtype=tf.int32)
-        else:
+        if np.random.rand() < self._epislon.epsilon:
             action = tf.convert_to_tensor(
                 np.random.randint(0, self.number_of_actions),
                 dtype=tf.int32,
             )
+        else:
+            action = tf.convert_to_tensor(action, dtype=tf.int32)
         next_obs = self.env.step(action)
         self._replay_buffer.add_batch(
             (

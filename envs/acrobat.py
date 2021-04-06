@@ -13,5 +13,3 @@ class AcrobotV1(BaseEnvWrapper):
             *args,
             **kwargs
         )
-
-
