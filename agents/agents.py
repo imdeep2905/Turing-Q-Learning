@@ -209,7 +209,9 @@ class DQNAgentSummedLoss(DQNAgentBase):
                 states, actions, rewards, next_states, dones = experiences[0]
 
                 next_Q_values = self._predict(env_num, next_states)
+
                 max_next_Q_values = tf.math.reduce_max(next_Q_values)
+
                 target_Q_values = (
                     tf.reshape(rewards, (1, self.batch_size))
                     + tf.math.subtract(
@@ -260,20 +262,20 @@ class DQNAgentSummedLoss(DQNAgentBase):
                     )
                 )
 
-            common_model_grads = tape.gradient(
-                total_loss, self.common_model.trainable_variables
-            )
-
-            for i in range(len(common_model_grads)):
-                common_model_grads[i] = tf.math.scalar_mul(
-                    pseudo_learning_rate, common_model_grads[i]
+                common_model_grads = tape.gradient(
+                    total_loss, self.common_model.trainable_variables
                 )
 
-            self.optimizer.apply_gradients(
-                zip(
-                    common_model_grads,
-                    self.common_model.trainable_variables,
+                for i in range(len(common_model_grads)):
+                    common_model_grads[i] = tf.math.scalar_mul(
+                        pseudo_learning_rate, common_model_grads[i]
+                    )
+
+                self.optimizer.apply_gradients(
+                    zip(
+                        common_model_grads,
+                        self.common_model.trainable_variables,
+                    )
                 )
-            )
 
         return total_loss / len(self.envs)
